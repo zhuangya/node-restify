@@ -158,6 +158,38 @@ exports.test_multiple_version = function(test, assert) {
 };
 
 
+exports.test_array_version = function(test, assert) {
+  var server = restify.createServer({
+      version: ['1.2.3', '1.2.4']
+  });
+  var socket = '/tmp/.' + uuid();
+
+  server.get('1.2.4', '/', function(req, res, next) { return res.send(201); });
+  server.get('/', function(req, res, next) { return res.send(200); });
+  server.listen(socket, function() {
+    var opts = common.newOptions(socket, '/');
+    http.request(opts, function(res) {
+      common.checkResponse(assert, res);
+      assert.ok(res.headers['x-api-version'], '1.2.3');
+      assert.equal(res.headers.server, 'node.js');
+      assert.equal(res.statusCode, 200);
+
+      opts = common.newOptions(socket, '/');
+      opts.headers['x-api-version'] = '1.2.4';
+      http.request(opts, function(res) {
+        common.checkResponse(assert, res);
+        assert.equal(res.headers['x-api-version'], '1.2.4');
+        assert.equal(res.statusCode, 201);
+        server.on('close', function() {
+          test.finish();
+        });
+        server.close();
+      }).end();
+    }).end();
+  });
+};
+
+
 exports.test_no_semver = function(test, assert) {
   var server = restify.createServer();
   var socket = '/tmp/.' + uuid();
